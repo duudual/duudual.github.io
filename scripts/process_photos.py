@@ -14,12 +14,14 @@ from datetime import datetime
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import json
+import yaml
 
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.parent
 PHOTOS_DIR = PROJECT_ROOT / "assets" / "images" / "photos"
 COLLECTION_DIR = PROJECT_ROOT / "_photos"
 TEMP_DIR = PROJECT_ROOT / "assets" / "images" / "photos" / "_temp"  # 临时存放新图片的目录
+PHOTOS_DATA_FILE = PROJECT_ROOT / "_data" / "photos.yml"  # 照片信息记录文件
 
 
 def get_exif_data(image_path):
@@ -63,15 +65,6 @@ def get_date_from_exif(exif_data):
                 continue
     
     return None
-
-
-def get_file_date(image_path):
-    """获取文件的修改日期作为备选"""
-    try:
-        mtime = os.path.getmtime(image_path)
-        return datetime.fromtimestamp(mtime)
-    except:
-        return None
 
 
 def format_date_for_filename(date_obj):
@@ -161,22 +154,20 @@ def create_collection_file(image_path, date_obj, location=None, tags=None):
     # 生成文件名（基于图片文件名，去掉扩展名）
     base_name = image_path.stem
     collection_file = COLLECTION_DIR / f"{base_name}.md"
-    
-    # 如果文件已存在，跳过
-    if collection_file.exists():
-        print(f"⚠ 跳过已存在的collection文件: {collection_file.name}")
-        return collection_file
-    
+        
     # 准备front matter数据
     date_str = format_date_for_frontmatter(date_obj)
     image_path_str = f"/assets/images/photos/{image_path.name}"
     
     # 构建YAML front matter
+    # 使用 header.teaser 格式以便在collection layout中正确显示
     front_matter = {
-        'title': f"照片 {base_name}",
+        'title': f"{base_name}",
         'date': date_str,
-        'image_path': image_path_str,
-        'full_image': image_path_str,
+        'header': {
+            'teaser': image_path_str,
+            'image': image_path_str
+        },
     }
     
     if location:
@@ -190,7 +181,12 @@ def create_collection_file(image_path, date_obj, location=None, tags=None):
         with open(collection_file, 'w', encoding='utf-8') as f:
             f.write("---\n")
             for key, value in front_matter.items():
-                if isinstance(value, list):
+                if isinstance(value, dict):
+                    # 处理嵌套字典（如header）
+                    f.write(f"{key}:\n")
+                    for sub_key, sub_value in value.items():
+                        f.write(f"  {sub_key}: {sub_value}\n")
+                elif isinstance(value, list):
                     f.write(f"{key}:\n")
                     for item in value:
                         f.write(f"  - {item}\n")
@@ -203,11 +199,11 @@ def create_collection_file(image_path, date_obj, location=None, tags=None):
             f.write("。\n")
         
         print(f"✓ 创建collection文件: {collection_file.name}")
+       
         return collection_file
     except Exception as e:
         print(f"✗ 创建collection文件失败: {e}")
         return None
-
 
 def process_single_image(image_path, tags=None, location=None):
     """处理单张图片"""
@@ -218,10 +214,6 @@ def process_single_image(image_path, tags=None, location=None):
     
     # 获取日期
     date_obj = get_date_from_exif(exif_data)
-    if not date_obj:
-        date_obj = get_file_date(image_path)
-        if not date_obj:
-            date_obj = datetime.now()
     
     print("日期：",date_obj)
     # 重命名图片（传入已获取的日期，避免重复读取EXIF）
@@ -274,8 +266,7 @@ def main():
                        help='源图片目录（默认为 assets/images/photos/_temp）')
     parser.add_argument('--tags', '-t', type=str, nargs='+',
                        help='照片标签（例如：--tags 风景 旅行）')
-    parser.add_argument('--location', '-l', type=str,
-                       help='地点信息（覆盖EXIF中的GPS数据）')
+    parser.add_argument('--location', '-l', type=str)
     parser.add_argument('--file', '-f', type=str,
                        help='处理单张图片文件')
     

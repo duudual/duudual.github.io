@@ -19,18 +19,9 @@
 <div class="{{ include.type | default: 'list' }}__item {% if is_photo %}photo-item{% endif %}">
   <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork"{% if post.locale %} lang="{{ post.locale }}"{% endif %}>
     {% if include.type == "grid" and teaser %}
-      {% assign teaser_src = teaser | relative_url %}
-      {% assign teaser_raw = teaser %}
-      {% if is_photo and teaser_raw contains '/assets/images/photos/' %}
-        {% assign thumb_candidate = teaser_raw | replace: '/assets/images/photos/', '/assets/images/photos/thumbs/' %}
-        {% assign thumb_file = site.static_files | where: "path", thumb_candidate | first %}
-        {% if thumb_file %}
-          {% assign teaser_src = thumb_candidate | relative_url %}
-        {% endif %}
-      {% endif %}
       <div class="archive__item-teaser">
         <a href="{{ post.url | relative_url }}">
-          <img src="{{ teaser_src }}" 
+          <img src="{{ teaser | relative_url }}" 
                alt="{{ post.description | default: title }}"
                loading="lazy"
                decoding="async">

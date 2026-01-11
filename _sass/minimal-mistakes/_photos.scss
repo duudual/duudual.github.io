@@ -1,0 +1,174 @@
+/* ==========================================================================
+   Photo Gallery Styles
+   ========================================================================== */
+
+/* 照片列表页样式 */
+.photo-item {
+  .archive__item-teaser {
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    a {
+      display: block;
+      overflow: hidden;
+    }
+
+    img {
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+      aspect-ratio: 4/3;
+      transition: transform 0.3s ease;
+    }
+
+    &:hover img {
+      transform: scale(1.05);
+    }
+  }
+
+  .archive__item-description {
+    margin-top: 0.5em;
+    font-size: 0.875em;
+    color: #999;
+    text-align: center;
+    font-style: italic;
+    padding: 0 0.5em;
+    line-height: 1.4;
+  }
+}
+
+/* 照片详情页样式 */
+.photo-detail {
+  .photo-main-image {
+    max-width: 1200px;
+    margin: 2em auto;
+    text-align: center;
+    background: #f8f8f8;
+    padding: 2em;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+
+    img {
+      max-width: 100%;
+      height: auto;
+      max-height: 85vh;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  .photo-info {
+    max-width: 900px;
+    margin: 2em auto;
+    padding: 2em;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  }
+
+  .photo-description {
+    margin-bottom: 2em;
+    padding-bottom: 1.5em;
+    border-bottom: 2px solid #e0e0e0;
+
+    p {
+      font-size: 1.1em;
+      font-weight: 600;
+      line-height: 1.6;
+      color: #333;
+      text-decoration: underline;
+      text-decoration-color: #d0d0d0;
+      text-underline-offset: 4px;
+      margin: 0;
+    }
+  }
+
+  .photo-metadata {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+  }
+
+  .photo-meta-item {
+    display: flex;
+    align-items: center;
+    font-size: 0.95em;
+    color: #555;
+    line-height: 1.5;
+
+    i {
+      width: 24px;
+      margin-right: 0.5em;
+      color: #888;
+      font-size: 0.9em;
+    }
+
+    .meta-label {
+      font-weight: 500;
+      color: #666;
+      margin-right: 0.5em;
+    }
+
+    .meta-value {
+      color: #333;
+    }
+  }
+
+  .photo-content {
+    max-width: 900px;
+    margin: 2em auto;
+    padding: 2em;
+    background: #fafafa;
+    border-radius: 8px;
+    font-size: 0.95em;
+    line-height: 1.8;
+    color: #444;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .photo-detail {
+    .photo-main-image {
+      padding: 1em;
+      margin: 1em auto;
+
+      img {
+        max-height: 70vh;
+      }
+    }
+
+    .photo-info,
+    .photo-content {
+      padding: 1.5em;
+      margin: 1.5em auto;
+    }
+
+    .photo-description p {
+      font-size: 1em;
+    }
+  }
+
+  .photo-item {
+    .archive__item-teaser img {
+      aspect-ratio: 1/1;
+    }
+  }
+}
+
+/* Grid布局优化 */
+.entries-grid {
+  .photo-item {
+    .archive__item {
+      padding: 0;
+    }
+  }
+}

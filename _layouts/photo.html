@@ -1,0 +1,89 @@
+---
+layout: default
+---
+
+{% if page.header.overlay_color or page.header.overlay_image or page.header.image %}
+  {% include page__hero.html %}
+{% endif %}
+
+<div id="main" role="main">
+  {% include sidebar.html %}
+
+  <article class="page photo-detail" itemscope itemtype="https://schema.org/Photograph">
+    <div class="page__inner-wrap">
+      
+      <section class="page__content" itemprop="text">
+        
+        <!-- 照片主图展示区 -->
+        <div class="photo-main-image">
+          <img src="{{ page.header.image | relative_url }}" 
+               alt="{{ page.description | default: page.title }}"
+               itemprop="image">
+        </div>
+
+        <!-- 照片信息区 -->
+        <div class="photo-info">
+          {% if page.description %}
+            <div class="photo-description">
+              <p>{{ page.description }}</p>
+            </div>
+          {% endif %}
+
+          <div class="photo-metadata">
+            {% if page.date %}
+              <div class="photo-meta-item">
+                <i class="far fa-calendar-alt"></i>
+                <span class="meta-label">拍摄时间：</span>
+                <span class="meta-value">{{ page.date | date: "%Y年%m月%d日" }}</span>
+              </div>
+            {% endif %}
+
+            {% if page.location %}
+              <div class="photo-meta-item">
+                <i class="fas fa-map-marker-alt"></i>
+                <span class="meta-label">拍摄地点：</span>
+                <span class="meta-value">{{ page.location }}</span>
+              </div>
+            {% endif %}
+
+            {% if page.camera %}
+              <div class="photo-meta-item">
+                <i class="fas fa-camera"></i>
+                <span class="meta-label">相机：</span>
+                <span class="meta-value">{{ page.camera }}</span>
+              </div>
+            {% endif %}
+
+            {% if page.lens %}
+              <div class="photo-meta-item">
+                <i class="fas fa-circle"></i>
+                <span class="meta-label">镜头：</span>
+                <span class="meta-value">{{ page.lens }}</span>
+              </div>
+            {% endif %}
+
+            {% if page.settings %}
+              <div class="photo-meta-item">
+                <i class="fas fa-sliders-h"></i>
+                <span class="meta-label">参数：</span>
+                <span class="meta-value">{{ page.settings }}</span>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- 照片正文内容 -->
+        {% if content %}
+          <div class="photo-content">
+            {{ content }}
+          </div>
+        {% endif %}
+
+      </section>
+
+      {% if page.share %}{% include social-share.html %}{% endif %}
+
+      {% include post_pagination.html %}
+    </div>
+  </article>
+</div>

@@ -28,6 +28,15 @@ THUMB_MAX_WIDTH = 720
 THUMB_QUALITY = 82
 
 
+def path_to_site_url(file_path: Path) -> str:
+    """将项目内的文件转换为站点可引用的URL"""
+    try:
+        rel_path = file_path.resolve().relative_to(PROJECT_ROOT.resolve())
+    except ValueError as exc:
+        raise ValueError(f"图片必须位于项目目录内: {file_path}") from exc
+    return "/" + rel_path.as_posix()
+
+
 def get_exif_data(image_path):
     """读取图片的EXIF数据"""
     try:
@@ -106,52 +115,6 @@ def generate_photo_id(date_str, existing_files):
         return 1
 
 
-def rename_image(image_path, date_obj=None, target_dir=PHOTOS_DIR):
-    
-    date_str = format_date_for_filename(date_obj)
-    
-    # 获取目标目录中已有的文件
-    existing_files = [f.name for f in target_dir.glob("*.jpg")] + \
-                     [f.name for f in target_dir.glob("*.JPG")]
-    
-    # 生成新的ID
-    photo_id = generate_photo_id(date_str, existing_files)
-    
-    # 生成新文件名
-    new_filename = f"{date_str}_{photo_id}.jpg"
-    new_path = target_dir / new_filename
-    
-    # 如果文件已存在，增加ID
-    counter = photo_id
-    while new_path.exists():
-        counter += 1
-        new_filename = f"{date_str}_{counter}.jpg"
-        new_path = target_dir / new_filename
-    
-    # 如果文件不在目标目录，需要先移动/复制
-    if image_path.parent != target_dir:
-        try:
-            import shutil
-            # 如果目标目录不存在，创建它
-            target_dir.mkdir(parents=True, exist_ok=True)
-            # 复制文件到目标目录
-            shutil.copy2(image_path, new_path)
-            print(f"✓ 复制并重命名: {image_path.name} -> {new_filename}")
-            return new_path, date_obj
-        except Exception as e:
-            print(f"✗ 复制文件失败 {image_path}: {e}")
-            return image_path, date_obj
-    else:
-        # 文件已在目标目录，只需重命名
-        try:
-            if image_path.name != new_filename:
-                image_path.rename(new_path)
-                print(f"✓ 重命名: {image_path.name} -> {new_filename}")
-            return new_path, date_obj
-        except Exception as e:
-            print(f"✗ 重命名失败 {image_path}: {e}")
-            return image_path, date_obj
-
 
 def create_thumbnail(image_path, max_width=THUMB_MAX_WIDTH, quality=THUMB_QUALITY):
     """为列表页生成小尺寸缩略图"""
@@ -159,7 +122,15 @@ def create_thumbnail(image_path, max_width=THUMB_MAX_WIDTH, quality=THUMB_QUALIT
         return None
 
     THUMB_DIR.mkdir(parents=True, exist_ok=True)
-    thumbnail_path = THUMB_DIR / image_path.name
+
+    try:
+        rel_path = image_path.resolve().relative_to(PROJECT_ROOT.resolve())
+    except ValueError as exc:
+        print(f"✗ 图片必须位于项目目录内: {image_path}")
+        return None
+
+    safe_name = "_".join(rel_path.with_suffix('').parts) + "_thumb.jpg"
+    thumbnail_path = THUMB_DIR / safe_name
 
     # 如果缩略图是最新的，跳过生成
     if thumbnail_path.exists():
@@ -195,7 +166,11 @@ def create_collection_file(image_path, date_obj, location=None, tags=None, tease
         
     # 准备front matter数据
     date_str = format_date_for_frontmatter(date_obj)
-    image_path_str = f"/assets/images/photos/{image_path.name}"
+    try:
+        image_path_str = path_to_site_url(image_path)
+    except ValueError as exc:
+        print(f"✗ {exc}")
+        return None
     teaser_path_str = teaser_url or image_path_str
     
     # 构建YAML front matter
@@ -246,7 +221,17 @@ def create_collection_file(image_path, date_obj, location=None, tags=None, tease
 
 def process_single_image(image_path, tags=None, location=None):
     """处理单张图片"""
-    print(f"\n处理图片: {image_path.name}")
+    image_path = Path(image_path).resolve()
+    print(f"\n处理图片: {image_path}")
+
+    if not image_path.exists():
+        print(f"✗ 文件不存在: {image_path}")
+        return image_path
+    try:
+        path_to_site_url(image_path)
+    except ValueError as exc:
+        print(f"✗ {exc}")
+        return image_path
     
     # 读取EXIF数据
     exif_data = get_exif_data(image_path)
@@ -255,18 +240,16 @@ def process_single_image(image_path, tags=None, location=None):
     date_obj = get_date_from_exif(exif_data)
     
     print("日期：",date_obj)
-    # 重命名图片（传入已获取的日期，避免重复读取EXIF）
-    new_path, _ = rename_image(image_path, date_obj)
     
     # 创建collection文件
-    thumbnail_path = create_thumbnail(new_path)
+    thumbnail_path = create_thumbnail(image_path)
     teaser_url = None
     if thumbnail_path:
-        teaser_url = "/" + thumbnail_path.relative_to(PROJECT_ROOT).as_posix()
+        teaser_url = path_to_site_url(thumbnail_path)
 
-    create_collection_file(new_path, date_obj, location, tags, teaser_url)
+    create_collection_file(image_path, date_obj, location, tags, teaser_url)
     
-    return new_path
+    return image_path
 
 
 def process_directory(source_dir=None, tags=None, location=None):

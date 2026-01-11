@@ -19,9 +19,13 @@ import yaml
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.parent
 PHOTOS_DIR = PROJECT_ROOT / "assets" / "images" / "photos"
+THUMB_DIR = PHOTOS_DIR / "thumbs"
 COLLECTION_DIR = PROJECT_ROOT / "_photos"
 TEMP_DIR = PROJECT_ROOT / "assets" / "images" / "photos" / "_temp"  # 临时存放新图片的目录
 PHOTOS_DATA_FILE = PROJECT_ROOT / "_data" / "photos.yml"  # 照片信息记录文件
+
+THUMB_MAX_WIDTH = 720
+THUMB_QUALITY = 82
 
 
 def get_exif_data(image_path):
@@ -149,7 +153,41 @@ def rename_image(image_path, date_obj=None, target_dir=PHOTOS_DIR):
             return image_path, date_obj
 
 
-def create_collection_file(image_path, date_obj, location=None, tags=None):
+def create_thumbnail(image_path, max_width=THUMB_MAX_WIDTH, quality=THUMB_QUALITY):
+    """为列表页生成小尺寸缩略图"""
+    if not image_path.exists():
+        return None
+
+    THUMB_DIR.mkdir(parents=True, exist_ok=True)
+    thumbnail_path = THUMB_DIR / image_path.name
+
+    # 如果缩略图是最新的，跳过生成
+    if thumbnail_path.exists():
+        if thumbnail_path.stat().st_mtime >= image_path.stat().st_mtime:
+            return thumbnail_path
+
+    try:
+        with Image.open(image_path) as img:
+            width, height = img.size
+            # 只在需要时缩放
+            if width > max_width:
+                ratio = max_width / float(width)
+                new_height = max(int(height * ratio), 1)
+                img = img.resize((max_width, new_height), Image.LANCZOS)
+
+            if img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+
+            img.save(thumbnail_path, format="JPEG", quality=quality, optimize=True, progressive=True)
+
+        print(f"✓ 生成缩略图: {thumbnail_path.name}")
+        return thumbnail_path
+    except Exception as exc:
+        print(f"✗ 生成缩略图失败 {image_path}: {exc}")
+        return None
+
+
+def create_collection_file(image_path, date_obj, location=None, tags=None, teaser_url=None):
     """创建Jekyll collection文件"""
     # 生成文件名（基于图片文件名，去掉扩展名）
     base_name = image_path.stem
@@ -158,6 +196,7 @@ def create_collection_file(image_path, date_obj, location=None, tags=None):
     # 准备front matter数据
     date_str = format_date_for_frontmatter(date_obj)
     image_path_str = f"/assets/images/photos/{image_path.name}"
+    teaser_path_str = teaser_url or image_path_str
     
     # 构建YAML front matter
     # 使用 header.teaser 格式以便在collection layout中正确显示
@@ -165,7 +204,7 @@ def create_collection_file(image_path, date_obj, location=None, tags=None):
         'title': f"{base_name}",
         'date': date_str,
         'header': {
-            'teaser': image_path_str,
+            'teaser': teaser_path_str,
             'image': image_path_str
         },
     }
@@ -220,12 +259,17 @@ def process_single_image(image_path, tags=None, location=None):
     new_path, _ = rename_image(image_path, date_obj)
     
     # 创建collection文件
-    create_collection_file(new_path, date_obj, location, tags)
+    thumbnail_path = create_thumbnail(new_path)
+    teaser_url = None
+    if thumbnail_path:
+        teaser_url = "/" + thumbnail_path.relative_to(PROJECT_ROOT).as_posix()
+
+    create_collection_file(new_path, date_obj, location, tags, teaser_url)
     
     return new_path
 
 
-def process_directory(source_dir=None, tags=None):
+def process_directory(source_dir=None, tags=None, location=None):
     """批量处理目录中的图片"""
     if source_dir is None:
         source_dir = TEMP_DIR
@@ -252,9 +296,30 @@ def process_directory(source_dir=None, tags=None):
     
     # 处理每张图片
     for image_path in sorted(image_files):
-        process_single_image(image_path, tags)
+        process_single_image(image_path, tags, location)
     
     print(f"\n✓ 处理完成！共处理 {len(image_files)} 张图片")
+
+
+def refresh_thumbnails():
+    """为现有图片重新生成缩略图"""
+    if not PHOTOS_DIR.exists():
+        print(f"目录不存在: {PHOTOS_DIR}")
+        return
+
+    originals = []
+    for pattern in ("*.jpg", "*.jpeg", "*.JPG", "*.JPEG", "*.png", "*.PNG"):
+        originals.extend([p for p in PHOTOS_DIR.glob(pattern) if p.parent == PHOTOS_DIR])
+
+    if not originals:
+        print("没有找到需要生成缩略图的原始照片。")
+        return
+
+    print(f"找到 {len(originals)} 张原始照片，正在生成缩略图...")
+    for photo in originals:
+        create_thumbnail(photo)
+
+    print("✓ 缩略图更新完成！")
 
 
 def main():
@@ -266,9 +331,12 @@ def main():
                        help='源图片目录（默认为 assets/images/photos/_temp）')
     parser.add_argument('--tags', '-t', type=str, nargs='+',
                        help='照片标签（例如：--tags 风景 旅行）')
-    parser.add_argument('--location', '-l', type=str)
+    parser.add_argument('--location', '-l', type=str,
+                       help='拍摄地点，会写入collection front matter')
     parser.add_argument('--file', '-f', type=str,
                        help='处理单张图片文件')
+    parser.add_argument('--refresh-thumbs', action='store_true',
+                       help='仅为现有照片生成/刷新缩略图')
     
     args = parser.parse_args()
     
@@ -276,6 +344,10 @@ def main():
     COLLECTION_DIR.mkdir(exist_ok=True)
     PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
     
+    if args.refresh_thumbs:
+        refresh_thumbnails()
+        sys.exit(0)
+
     if args.file:
         # 处理单张图片
         image_path = Path(args.file)
@@ -285,7 +357,7 @@ def main():
         process_single_image(image_path, args.tags, args.location)
     else:
         # 批量处理
-        process_directory(args.source, args.tags)
+        process_directory(args.source, args.tags, args.location)
 
 
 if __name__ == "__main__":
